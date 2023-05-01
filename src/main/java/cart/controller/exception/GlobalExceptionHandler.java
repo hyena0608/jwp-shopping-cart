@@ -1,6 +1,5 @@
 package cart.controller.exception;
 
-import cart.controller.response.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;

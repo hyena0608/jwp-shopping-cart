@@ -1,6 +1,8 @@
 package cart;
 
-import cart.repository.ProductRepository;
+import cart.domain.product.Product;
+import cart.domain.product.ProductId;
+import cart.repository.product.ProductRepository;
 import cart.service.request.ProductCreateRequest;
 import cart.service.request.ProductUpdateRequest;
 import io.restassured.RestAssured;
@@ -49,7 +51,7 @@ class ProductIntegrationTest {
 
     @Test
     void getProducts() {
-        repository.save(new ProductCreateRequest("HYENA", 10000, "이미지-url"));
+        repository.save(new Product("HYENA", 10000, "이미지-url"));
 
         given(this.spec)
                 .log().all()
@@ -93,13 +95,13 @@ class ProductIntegrationTest {
 
     @Test
     void deleteProduct() {
-        final long saveId = repository.save(new ProductCreateRequest("KIARA", 10000, "이미지-url"));
+        final ProductId saveId = repository.save(new Product("KIARA", 10000, "이미지-url"));
 
         given(this.spec)
                 .log().all()
                 .filter(document(METHOD_NAME))
                 .contentType(APPLICATION_JSON_VALUE)
-                .pathParam("id", saveId)
+                .pathParam("id", saveId.getId())
 
         .when()
                 .delete("/products/{id}")
@@ -109,7 +111,7 @@ class ProductIntegrationTest {
 
     @Test
     void updateProduct() {
-        final long saveId = repository.save(new ProductCreateRequest("KIARA", 10000, "이미지-url"));
+        final ProductId saveId = repository.save(new Product("KIARA", 10000, "이미지-url"));
         final ProductUpdateRequest request = new ProductUpdateRequest("HYENA", 3000, "이미지2-url");
 
         given(this.spec)
@@ -128,7 +130,7 @@ class ProductIntegrationTest {
                         )
                 ))
                 .contentType(APPLICATION_JSON_VALUE)
-                .pathParam("id", saveId)
+                .pathParam("id", saveId.getId())
                 .body(request)
 
         .when()

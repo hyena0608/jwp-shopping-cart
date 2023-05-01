@@ -11,6 +11,11 @@ public class Member {
         this.id = id;
     }
 
+    public Member(final String email, final String password) {
+        this.email = email;
+        this.password = password;
+    }
+
     public Member(final String name, final String email, final String password) {
         validate(name, email, password);
         this.name = name;

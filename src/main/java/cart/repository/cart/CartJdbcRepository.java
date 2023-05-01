@@ -3,7 +3,6 @@ package cart.repository.cart;
 import cart.domain.cart.Cart;
 import cart.domain.cart.CartId;
 import cart.domain.member.MemberId;
-import cart.domain.product.Product;
 import cart.domain.product.ProductId;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,7 +12,6 @@ import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,7 +31,7 @@ public class CartJdbcRepository implements CartRepository {
             this.name = name;
         }
     }
-    
+
     private final JdbcTemplate jdbcTemplate;
     private final SimpleJdbcInsert simpleJdbcInsert;
 
@@ -45,60 +43,52 @@ public class CartJdbcRepository implements CartRepository {
     }
 
     @Override
-    public CartId save(final Cart cart) {
-        final long cartId = simpleJdbcInsert.executeAndReturnKey(paramSource(cart)).longValue();
+    public CartId saveByMemberId(final MemberId memberId, final ProductId productId) {
+        final long cartId = simpleJdbcInsert.executeAndReturnKey(cartProductParamSource(productId, memberId)).longValue();
         return CartId.from(cartId);
     }
 
-    private SqlParameterSource paramSource(final Cart cart) {
+    private SqlParameterSource cartProductParamSource(final ProductId productId, final MemberId memberId) {
         return new MapSqlParameterSource()
-                .addValue(MEMBER_ID.name, cart.getMemberId().getId());
+                .addValue(MEMBER_ID.name, memberId.getId())
+                .addValue(PRODUCT_ID.name, productId.getId());
     }
 
     @Override
-    public Optional<Cart> joinProductsByMemberId(final MemberId memberId) {
-        final String sql = new StringBuilder()
-                .append("SELECT")
-                .append(" c.id,")
-                .append(" c.member_id AS member_id,")
-                .append(" p.id AS product_id,")
-                .append(" p.name AS product_name,")
-                .append(" p.price AS product_price,")
-                .append(" p.image AS product_image")
-                .append(" FROM carts c, cart_product cp, products p")
-                .append(" WHERE c.member_id = ?")
-                .append(" AND c.id = cp.cart_id")
-                .append(" AND cp.product_id = p.id")
-                .toString();
-
+    public Optional<Cart> findByCartId(final CartId cartId) {
+        final String sql = "SELECT * FROM carts WHERE id = ?";
         try {
-            final Cart cart = jdbcTemplate.queryForObject(sql, rowMapperJoinProducts, memberId.getId());
-            return Optional.ofNullable(cart);
+            return Optional.ofNullable(jdbcTemplate.queryForObject(sql, cartRowMapper, cartId.getId()));
         } catch (EmptyResultDataAccessException e) {
             return Optional.empty();
         }
     }
 
-    private final RowMapper<Cart> rowMapperJoinProducts = (rs, rowNum) -> {
-        final CartId cartId = CartId.from(rs.getLong(ID.name));
-        final MemberId memberId = MemberId.from(rs.getLong(MEMBER_ID.name));
-
-        final List<Product> products = new ArrayList<>();
-        do {
-            final Product product = new Product(
-                    ProductId.from(rs.getLong(PRODUCT_ID.name)),
-                    rs.getString("product_name"),
-                    rs.getDouble("product_price"),
-                    rs.getString("product_image"));
-
-            products.add(product);
-        } while (rs.next());
-
-        return new Cart(cartId, memberId, products);
+    private final RowMapper<Cart> cartRowMapper = (rs, rowNum) -> {
+        return new Cart(
+                CartId.from(rs.getLong(ID.name)),
+                MemberId.from(rs.getLong(MEMBER_ID.name)),
+                ProductId.from(rs.getLong(PRODUCT_ID.name))
+        );
     };
 
     @Override
-    public CartId deleteByMemberId(final MemberId memberId) {
-        return CartId.from(0);
+    public List<Cart> findAllByMemberId(final MemberId memberId) {
+        final String sql = "SELECT * FROM carts WHERE member_id = ?";
+        return jdbcTemplate.query(sql, rowMapperJoinProducts, memberId.getId());
+    }
+
+    private final RowMapper<Cart> rowMapperJoinProducts = (rs, rowNum) -> {
+        final CartId cartId = CartId.from(rs.getLong(ID.name));
+        final MemberId memberId = MemberId.from(rs.getLong(MEMBER_ID.name));
+        final ProductId productId = ProductId.from(rs.getLong(PRODUCT_ID.name));
+
+        return new Cart(cartId, memberId, productId);
+    };
+
+    @Override
+    public int deleteByMemberId(final MemberId memberId, final ProductId productId) {
+        final String sql = "DELETE FROM carts WHERE member_id = ? AND product_id = ?";
+        return jdbcTemplate.update(sql, memberId.getId(), productId.getId());
     }
 }
